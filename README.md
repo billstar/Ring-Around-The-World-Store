@@ -6,13 +6,13 @@ its origin — producing a tamper-evident, independently-anchored proof that the
 physically visited every region.
 
 ```
-client → us-west1 → us-central1 → us-east4 → europe-west1 → europe-central2 → asia-northeast1
-              ↑                                                                      │
-              └────────────────────── ring close (7th receipt) ───────────────────────┘
+client → us-west1 → us-central1 → us-east4 → europe-west1 → europe-central2
+              ↑                                                           │
+              └────────────────────── ring close (6th receipt) ───────────┘
 ```
 
 Every arrow is a blocking call. Each hop waits for the entire remainder of the chain
-before returning, so the stack unwinds Tokyo → Warsaw → Belgium → Virginia → Iowa →
+before returning, so the stack unwinds Warsaw → Belgium → Virginia → Iowa →
 Oregon, and the client's request is answered only after the ring has fully closed.
 
 See [Requirements.md](Requirements.md) and [Design.md](Design.md).
@@ -70,6 +70,17 @@ The browser receives the origin URL from `/config.js`, rendered at runtime.
 This keeps URLs out of repository crawls; it is not an access control. The actual
 cost control is `max_instances`, which bounds the amplification of a public endpoint
 that fans out to seven writes per call.
+
+## Visual design
+
+The client uses the **Broadsheet** design system (Source Serif 4 throughout, ink-on-paper
+palette, hairline rules instead of boxes, near-zero radii). Numerals in the statistics row
+are set as three misregistered CMYK process plates over a paper union — a pure-CSS print
+motif, no images. Charts are hand-drawn inline SVG; the page pulls in no JS libraries.
+
+Both light and dark are supported. Light is the canonical paper treatment; dark keeps the
+same inks and rules on dark stock, with the numeral plates switched from `multiply` to
+`screen` since multiply needs a light backdrop.
 
 ## Layout
 

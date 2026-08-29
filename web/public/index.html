@@ -4,118 +4,332 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ring Around The World</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
 <!--RATW_CONFIG-->
 <style>
+/* ═══════════════════════════════════════════════════════════════════════
+   Broadsheet — tokens ported from the Claude Design system. Ink on paper:
+   a serif throughout, near-zero radii, rules instead of boxes, and the
+   three process inks (cyan, magenta, yellow) used only for print motifs.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-accent: #0088b0;
+  --color-accent-2: #d6006c;
+  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+  --color-process-yellow: #edbb00;
+
+  --color-accent-100:#e9f8ff; --color-accent-600:#1186ac; --color-accent-700:#006786;
+  --color-accent-800:#004961;
+  --color-accent-2-100:#fff1f4; --color-accent-2-600:#d82071; --color-accent-2-800:#790e3d;
+  --color-neutral-100:#f8f4f4; --color-neutral-800:#444141;
+
+  --ok: #006786;
+  --bad: #aa0b56;
+
+  --font-heading: "Source Serif 4", Georgia, serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-heading-weight: 600;
+
+  --space-1:5px; --space-2:10px; --space-3:15px; --space-4:20px; --space-6:30px; --space-8:40px;
+  --radius-sm:1px; --radius-md:2px; --radius-lg:4px;
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+}
+
+/* The paper darkens rather than the design changing: same inks, same rules,
+   same serif. Cyan and magenta are lifted so they hold against dark ink. */
+@media (prefers-color-scheme: dark) {
   :root {
-    --bg:#0e1116; --panel:#161b22; --line:#2a313a; --fg:#e6edf3; --dim:#8b949e;
-    --ok:#3fb950; --bad:#f85149; --warn:#d29922; --accent:#58a6ff;
+    --color-bg: #16150f;
+    --color-surface: #201e1d;
+    --color-text: #ece7dd;
+    --color-divider: color-mix(in srgb, #ece7dd 20%, transparent);
+    --color-accent: #62c5ee;
+    --color-accent-2: #ff90b1;
+    --color-accent-100: #0a303e;
+    --color-accent-800: #cbeeff;
+    --color-accent-2-100: #4b1528;
+    --color-accent-2-800: #ffdee6;
+    --color-neutral-100: #2d2b2b;
+    --color-neutral-800: #eae7e7;
+    --ok: #62c5ee;
+    --bad: #ff90b1;
   }
-  @media (prefers-color-scheme: light) {
-    :root { --bg:#fff; --panel:#f6f8fa; --line:#d8dee4; --fg:#1f2328; --dim:#636c76;
-            --ok:#1a7f37; --bad:#cf222e; --warn:#9a6700; --accent:#0969da; }
-  }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; }
-  .wrap { max-width:1100px; margin:0 auto; padding:24px 20px 60px; }
-  h1 { font-size:20px; margin:0 0 2px; letter-spacing:-.01em; }
-  .sub { color:var(--dim); font-size:13px; margin-bottom:20px; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  input[type=text] { flex:1; min-width:240px; background:var(--bg); color:var(--fg);
-    border:1px solid var(--line); border-radius:6px; padding:8px 10px; font:inherit; }
-  button { background:var(--accent); color:#fff; border:0; border-radius:6px;
-    padding:8px 14px; font:inherit; font-weight:600; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
-  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
-  th { color:var(--dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
-  td.num { text-align:right; }
-  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
-  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)} .dim{color:var(--dim)}
-  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; }
-  .badge.ok{background:rgba(63,185,80,.15); color:var(--ok)}
-  .badge.bad{background:rgba(248,81,73,.15); color:var(--bad)}
-  .badge.warn{background:rgba(210,153,34,.15); color:var(--warn)}
-  details { margin-top:8px; } summary { cursor:pointer; color:var(--dim); }
-  pre { overflow-x:auto; background:var(--bg); border:1px solid var(--line);
-        border-radius:6px; padding:10px; font-size:12px; }
-  /* Unbounded: the history grows the page rather than scrolling inside a box, so
-     hop detail can be expanded and read in place. */
-  .hist tr.head { cursor:pointer; }
-  .hist tr.head:hover td { background:rgba(127,127,127,.07); }
-  .hist td.caret { width:18px; color:var(--dim); }
-  .detail td { background:rgba(127,127,127,.04); padding:0 8px 10px 26px; }
-  .detail table { margin-top:4px; }
-  .detail th,.detail td { border-bottom:1px solid var(--line); font-size:12px; }
-  /* Demo toggle. A real checkbox underneath (keyboard and screen-reader behaviour,
-     and the existing change handler) with the checkbox itself visually replaced. */
-  .switch { display:flex; align-items:center; gap:9px; color:var(--dim);
-            cursor:pointer; user-select:none; }
-  .switch input { position:absolute; opacity:0; width:0; height:0; }
-  .track { position:relative; width:40px; height:22px; flex:none; border-radius:999px;
-           background:var(--line); transition:background .18s ease; }
-  .thumb { position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%;
-           background:var(--bg); box-shadow:0 1px 3px rgba(0,0,0,.45);
-           transition:transform .18s ease; }
-  .switch input:checked + .track { background:var(--ok); }
-  .switch input:checked + .track .thumb { transform:translateX(18px); }
-  .switch input:focus-visible + .track { outline:2px solid var(--accent); outline-offset:2px; }
-  .switch .lbl { font-weight:600; }
-  .switch input:checked ~ .lbl { color:var(--ok); }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin:0; background:var(--color-bg); color:var(--color-text);
+  font-family:var(--font-body); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h6 { font-family:var(--font-heading); font-weight:var(--font-heading-weight); margin:0; }
+h2 { font-size:32px; letter-spacing:-.015em; }
+h6 { font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+     color:color-mix(in srgb, var(--color-text) 58%, transparent); }
+.wrap { max-width:1240px; margin:0 auto; padding:36px 40px 90px; }
+.muted { color:color-mix(in srgb, var(--color-text) 58%, transparent); }
+.italic { font-style:italic; }
+.micro { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase;
+         color:color-mix(in srgb, var(--color-text) 62%, transparent); }
+.mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+.num { font-variant-numeric:tabular-nums; }
+
+/* ── masthead ── */
+.rule-heavy { height:4px; background:var(--color-text); margin:18px 0 0; }
+.rule-hair  { height:1px; background:var(--color-text); margin:0 0 34px; }
+.dateline { display:flex; align-items:center; gap:22px; padding:7px 0; flex-wrap:wrap; }
+
+/* ── controls ── */
+.field > label { display:block; font-size:12px; margin-bottom:5px;
+  color:color-mix(in srgb, var(--color-text) 70%, transparent); }
+.input {
+  width:100%; min-height:36px; padding:6px 10px; font:inherit; font-size:14px;
+  color:var(--color-text); caret-color:var(--color-accent);
+  background:var(--color-surface);
+  border:1px solid var(--color-divider); border-radius:var(--radius-md);
+}
+.input::placeholder { color:color-mix(in srgb, var(--color-text) 65%, transparent); opacity:1; }
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;
+  font-family:var(--font-heading); font-weight:var(--font-heading-weight);
+  font-size:14px; line-height:1.2; min-height:36px; color:var(--color-text);
+  background:transparent; border:1px solid transparent;
+  padding:var(--space-2) 18px; border-radius:var(--radius-md);
+}
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+.btn-primary { background:var(--color-accent); color:var(--color-bg); }
+.btn-primary:hover:not(:disabled) { background:var(--color-accent-600); }
+.btn-secondary { border-color:var(--color-divider); }
+.btn-secondary:hover { background:color-mix(in srgb, var(--color-text) 7%, transparent); }
+.tag { display:inline-flex; align-items:center; font-size:11px; letter-spacing:.02em;
+       padding:3px 10px; border-radius:calc(var(--radius-md) * 0.75); }
+.tag-accent   { background:var(--color-accent-100);   color:var(--color-accent-800); }
+.tag-accent-2 { background:var(--color-accent-2-100); color:var(--color-accent-2-800); }
+.tag-neutral  { background:var(--color-neutral-100);  color:var(--color-neutral-800); }
+
+/* ── demo toggle, in the system's register ── */
+.switch { display:flex; align-items:center; gap:9px; cursor:pointer; user-select:none;
+          font-size:13px; color:color-mix(in srgb, var(--color-text) 70%, transparent); }
+.switch input { position:absolute; opacity:0; width:0; height:0; }
+.track { position:relative; width:40px; height:22px; flex:none;
+         border:1px solid var(--color-divider); border-radius:999px;
+         background:var(--color-surface); transition:background .18s ease, border-color .18s ease; }
+.thumb { position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%;
+         background:var(--color-text); transition:transform .18s ease, background .18s ease; }
+.switch input:checked + .track { background:var(--color-accent); border-color:var(--color-accent); }
+.switch input:checked + .track .thumb { transform:translateX(18px); background:var(--color-bg); }
+.switch input:focus-visible + .track { outline:2px solid var(--color-accent); outline-offset:2px; }
+.switch input:checked ~ .lbl { color:var(--color-accent); }
+.lbl { font-family:var(--font-heading); font-weight:var(--font-heading-weight); }
+
+/* ── the CMYK numeral: three misregistered process plates over a paper union ── */
+.cmyk-num {
+  --cmyk-num-ground: var(--color-bg);
+  position:relative; width:fit-content; line-height:.9;
+  font-family:var(--font-heading); font-weight:var(--font-heading-weight);
+  font-size:112px; letter-spacing:-.04em; font-variant-numeric:tabular-nums;
+  background:var(--cmyk-num-ground); padding:.12em; margin:-.12em;
+}
+.cmyk-num .paper { color:var(--color-bg);
+  text-shadow:.036em .025em 0 var(--color-bg), -.031em -.023em 0 var(--color-bg); }
+.cmyk-num .plate { position:absolute; inset:.12em; mix-blend-mode:multiply; }
+.cmyk-num .plate-c { color:var(--color-accent); }
+.cmyk-num .plate-m { color:var(--color-accent-2);      translate:.036em .025em; }
+.cmyk-num .plate-y { color:var(--color-process-yellow); translate:-.031em -.023em; }
+@media (prefers-color-scheme: dark) {
+  /* multiply needs a light backdrop; on dark paper the plates screen instead. */
+  .cmyk-num .plate { mix-blend-mode:screen; }
+  .cmyk-num .paper { color:#0d0c08;
+    text-shadow:.036em .025em 0 #0d0c08, -.031em -.023em 0 #0d0c08; }
+}
+.unit { font-size:32px; padding-bottom:14px;
+        color:color-mix(in srgb, var(--color-text) 45%, transparent); }
+
+/* ── tables ── */
+.table { width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
+.table th { text-align:left; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  color:color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding:var(--space-2); border-bottom:1px solid var(--color-divider); }
+.table td { padding:var(--space-2);
+  border-bottom:1px solid color-mix(in srgb, var(--color-text) 8%, transparent); }
+.table tbody tr:hover { background:color-mix(in srgb, var(--color-text) 4%, transparent); }
+.r { text-align:right; }
+
+.hist tr.head { cursor:pointer; }
+.hist td.caret { width:20px; color:color-mix(in srgb,var(--color-text) 45%,transparent); }
+.detail > td { background:color-mix(in srgb, var(--color-text) 4%, transparent);
+               padding:2px 10px 14px 30px; }
+.detail .table th, .detail .table td { font-size:12px; padding:5px 8px; }
+
+section { margin-bottom:56px; }
+.sec-head { display:flex; align-items:baseline; gap:18px; margin-bottom:14px; flex-wrap:wrap; }
+.legend { display:flex; gap:24px; flex-wrap:wrap; font-size:12px; margin-top:4px;
+          color:color-mix(in srgb,var(--color-text) 62%,transparent); }
+.legend span { display:inline-flex; align-items:center; gap:7px; }
+.swatch { width:22px; height:2px; display:inline-block; }
+@keyframes ratw-blink { 0%,100%{opacity:.25} 50%{opacity:1} }
+.live { animation:ratw-blink 1.4s ease-in-out infinite; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Ring Around The World</h1>
-  <div class="sub">One string, five GCP regions, seven write/read receipts, one tamper-evident hash chain.</div>
 
-  <div class="panel">
-    <div class="row">
-      <input type="text" id="payload" value="Hello from California" maxlength="4096" placeholder="a small string">
-      <button id="send">Send Around The World</button>
-      <label class="switch" for="demo">
-        <input type="checkbox" id="demo">
-        <span class="track"><span class="thumb"></span></span>
-        <span class="lbl">Demo mode (executes 100 rings)</span>
-      </label>
-    </div>
-    <div id="status" class="sub" style="margin:10px 0 0"></div>
+  <header>
+    <h1 style="font-size:56px;line-height:1;letter-spacing:-.03em">Ring Around The World</h1>
+    <p class="muted italic" style="margin:10px 0 0;font-size:16px;max-width:88ch">
+      A small string is carried through five GCP regions by nested blocking Cloud Run calls,
+      written to and read back from a regional GCS bucket in each, and returned to its origin.
+      This produces a tamper-evident, independently-anchored proof that the data physically
+      visited every region.
+    </p>
+  </header>
+
+  <div class="rule-heavy"></div>
+  <div class="dateline micro">
+    <span id="dateline"></span>
+    <span>Rings sent <span id="ringcount">0</span></span>
+    <span>Regions <span id="regioncount">5</span></span>
+    <span>Receipts per ring <span id="rcptcount">6</span></span>
+    <span id="streamlabel" style="margin-left:auto"></span>
   </div>
+  <div class="rule-hair"></div>
 
-  <div class="panel">
-    <div class="row" style="justify-content:space-between">
-      <strong>Current ring <span class="dim" id="ringmsg"></span></strong><span id="verdict"></span>
+  <section style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+    <div class="field" style="flex:1;min-width:280px">
+      <label for="payload">Payload</label>
+      <input id="payload" class="input" type="text" maxlength="4096"
+             value="Hello from California" placeholder="a small string">
     </div>
-    <table id="hops"><thead><tr>
-      <th>#</th><th>region</th><th>location</th><th class="num">write</th>
-      <th class="num">read</th><th class="num">hop</th><th>generation</th><th>readback</th>
-    </tr></thead><tbody></tbody></table>
-    <details><summary>raw envelope</summary><pre id="raw" class="mono"></pre></details>
-  </div>
+    <button id="send" class="btn btn-primary">Send Around The World</button>
+    <label class="switch" for="demo">
+      <input type="checkbox" id="demo">
+      <span class="track"><span class="thumb"></span></span>
+      <span class="lbl">Demo mode (executes 100 rings)</span>
+    </label>
+  </section>
 
-  <div class="panel">
-    <div class="row" style="justify-content:space-between">
-      <strong>History <span class="dim" id="histcount"></span></strong>
-      <span class="row">
-        <span class="dim" id="pollstate"></span>
-        <button class="ghost" id="pause">Pause</button>
-        <button class="ghost" id="clear">Clear</button>
+  <!-- ── the numbers, set as press plates ── -->
+  <section>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:56px;align-items:end">
+      <div>
+        <h6 style="margin-bottom:14px">Requests successful</h6>
+        <div style="display:flex;align-items:flex-end;gap:12px">
+          <div class="cmyk-num" id="pctNum"></div><span class="unit">%</span>
+        </div>
+        <svg id="okSpark" height="52" style="margin-top:12px;width:100%;display:block"></svg>
+        <div class="muted" style="font-size:12px" id="okDetail">no rings yet</div>
+      </div>
+      <div>
+        <h6 style="margin-bottom:14px">Median latency</h6>
+        <div style="display:flex;align-items:flex-end;gap:12px">
+          <div class="cmyk-num" id="medNum"></div><span class="unit">ms</span>
+        </div>
+        <svg id="latSpark" height="52" style="margin-top:12px;width:100%;display:block"></svg>
+        <div class="muted" style="font-size:12px" id="latDetail">&nbsp;</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px;padding-bottom:6px;min-width:140px">
+        <div><h6>p95</h6><div class="num" id="p95" style="font-size:27px;line-height:1">—</div></div>
+        <div>
+          <h6>Slowest hop</h6>
+          <div class="num" id="worstHop" style="font-size:27px;line-height:1">—</div>
+          <div class="muted italic" style="font-size:12px" id="worstHopName">&nbsp;</div>
+        </div>
+        <div><h6>Chains broken</h6>
+          <div class="num" id="broken" style="font-size:27px;line-height:1">0</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the ring as a schematic, drawn from the measured receipt timings ── -->
+  <section>
+    <div class="sec-head">
+      <h2>The ring, hop by hop</h2>
+      <span class="muted italic" style="font-size:13px" id="mapCaption">send a ring to draw it</span>
+    </div>
+    <svg id="ringMap" style="width:100%;display:block" height="190"></svg>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--color-accent)"></span>forward hop, blocking</span>
+      <span><span class="swatch" style="background:var(--color-accent-2)"></span>ring close, final receipt</span>
+      <span><span class="swatch" style="border-top:2px dotted currentColor;height:0"></span>client leg</span>
+      <span style="margin-left:auto" class="italic">Segment length is the measured hop time.</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Current ring</h2>
+      <span id="verdict"></span>
+      <span class="muted" style="margin-left:auto;font-size:13px" id="status"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="table" id="hops"><thead><tr>
+        <th style="width:34px">#</th><th>Region</th><th>Location</th>
+        <th class="r">Write</th><th class="r">Read</th><th class="r">Hop</th>
+        <th class="r">Generation</th><th>Readback</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <p class="muted italic" style="margin:10px 0 0;font-size:12px" id="chainhead">&nbsp;</p>
+    <details style="margin-top:8px">
+      <summary class="muted" style="cursor:pointer;font-size:13px">Raw envelope</summary>
+      <pre id="raw" class="mono" style="overflow-x:auto;background:var(--color-surface);
+        border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:10px"></pre>
+    </details>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Logs</h2>
+      <span class="muted italic" style="font-size:13px" id="logCaption"></span>
+      <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+        <span class="micro" id="pollstate"></span>
+        <button id="pause" class="btn btn-secondary">Pause</button>
+        <button id="clear" class="btn btn-secondary">Clear</button>
       </span>
     </div>
-    <div class="hist"><table id="hist"><thead><tr>
-      <th></th><th>when</th><th>payload</th><th class="num">total</th><th>chain</th><th>logs</th>
-    </tr></thead><tbody></tbody></table></div>
-  </div>
+
+    <div style="display:grid;grid-template-columns:1fr 240px;gap:40px;align-items:start">
+      <div>
+        <svg id="latChart" style="width:100%;display:block" height="150"></svg>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--color-accent)"></span>ring total, newest right</span>
+          <span><span class="swatch" style="border-top:2px dashed var(--color-accent-2);height:0"></span>median</span>
+          <span><span style="width:9px;height:9px;border-radius:50%;background:var(--color-accent-2-600);display:inline-block"></span>failed ring</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div><h6>Events received</h6>
+          <div class="num" id="evCount" style="font-size:24px;line-height:1">0</div></div>
+        <div><h6>Rings in history</h6>
+          <div class="num" id="histcount" style="font-size:24px;line-height:1">0</div></div>
+        <div><h6>Region share of ring time</h6>
+          <div id="share" style="margin-top:6px"></div></div>
+      </div>
+    </div>
+
+    <div style="margin-top:26px">
+      <table class="table hist" id="hist"><thead><tr>
+        <th style="width:20px"></th><th style="width:110px">Time</th><th>Payload</th>
+        <th class="r" style="width:90px">Total</th><th style="width:110px">Chain</th><th>Logs</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </section>
 </div>
+
 <script>
 const ORIGIN = (window.RATW_CONFIG || {}).originUrl || '';
 /* Base path of this page, so /logs resolves correctly whether the app is served at
    the root (run.app) or under a prefix (cloudfunctions.net/ratw-web). */
 const BASE = location.pathname.replace(/\/index\.html$/, '').replace(/\/+$/, '');
 const CITY = {'us-west1':'Oregon','us-central1':'Iowa','us-east4':'N. Virginia',
-  'europe-west1':'Belgium','europe-central2':'Warsaw','asia-northeast1':'Tokyo'};
+  'europe-west1':'Belgium','europe-central2':'Warsaw','asia-northeast1':'Tokyo',
+  'asia-east1':'Taiwan','asia-southeast1':'Singapore'};
 const KEY = 'ratw.traces', CLIENT_KEY = 'ratw.client', MAX = 100;
+const $ = s => document.querySelector(s);
 
 /* A stable per-browser id. The origin stamps it onto this ring's log events, and
    /logs returns only rings carrying it — so the history can never show a ring this
@@ -123,14 +337,10 @@ const KEY = 'ratw.traces', CLIENT_KEY = 'ratw.client', MAX = 100;
 function clientId() {
   let id = null;
   try { id = localStorage.getItem(CLIENT_KEY); } catch {}
-  if (!id) {
-    id = crypto.randomUUID();
-    try { localStorage.setItem(CLIENT_KEY, id); } catch {}
-  }
+  if (!id) { id = crypto.randomUUID(); try { localStorage.setItem(CLIENT_KEY, id); } catch {} }
   return id;
 }
 const CLIENT_ID = clientId();
-const $ = s => document.querySelector(s);
 
 /* ---- canonical JSON: must match functions/internal/canonical byte for byte ----
    sorted keys at every depth, no HTML escaping (JSON.stringify never escapes),
@@ -169,72 +379,251 @@ async function verifyChain(env) {
 /* ---- history in localStorage: the only record of which rings are ours ---- */
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
 const save = h => { try { localStorage.setItem(KEY, JSON.stringify(h.slice(0, MAX))); } catch {} };
-function remember(entry) { const h = load(); h.unshift(entry); save(h); renderHistory(); }
+function remember(entry) { const h = load(); h.unshift(entry); save(h); renderAll(); }
+
+/* ---- small chart helpers: plain SVG, no libraries ---- */
+const svgNS = 'http://www.w3.org/2000/svg';
+function el(name, attrs, text) {
+  const n = document.createElementNS(svgNS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  return n;
+}
+const quantile = (arr, q) => {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a,b) => a-b);
+  return s[Math.min(s.length-1, Math.floor(q * s.length))];
+};
+
+function sparkline(svg, values, color) {
+  svg.innerHTML = '';
+  const w = svg.clientWidth || 300, h = 52;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  if (values.length < 2) return;
+  const max = Math.max(...values), min = Math.min(...values);
+  const span = max - min || 1;
+  const pts = values.map((v, i) => [
+    (i / (values.length - 1)) * w,
+    h - 4 - ((v - min) / span) * (h - 10)
+  ]);
+  svg.appendChild(el('polyline', { fill:'none', stroke:color, 'stroke-width':1.5,
+    points: pts.map(p => p.join(',')).join(' ') }));
+  const last = pts[pts.length-1];
+  svg.appendChild(el('circle', { cx:last[0], cy:last[1], r:2.5, fill:color }));
+}
+
+/* The ring drawn from its own measured timings: segment length is hop duration,
+   so a slow leg is visibly long rather than merely a larger number in a table. */
+function drawRing(env) {
+  const svg = $('#ringMap'); svg.innerHTML = '';
+  const receipts = (env && env.receipts) || [];
+  const w = svg.clientWidth || 900, h = 190;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  if (!receipts.length) return;
+
+  const pad = 44, y = 78;
+  const times = receipts.map(r => Math.max(r.d_total_us / 1000, 1));
+  const total = times.reduce((a,b) => a+b, 0);
+  const usable = w - pad * 2;
+  let x = pad;
+  const nodes = receipts.map((r, i) => {
+    const px = x;
+    x += (times[i] / total) * usable;
+    return { x: px, r, i };
+  });
+  nodes.push({ x: w - pad, r: null, i: receipts.length });
+
+  // client leg, dotted
+  svg.appendChild(el('line', { x1:8, y1:y, x2:pad, y2:y, stroke:'currentColor',
+    'stroke-width':2, 'stroke-dasharray':'2 3', opacity:.4 }));
+
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const closing = receipts[i] && receipts[i].ring_close;
+    svg.appendChild(el('line', { x1:nodes[i].x, y1:y, x2:nodes[i+1].x, y2:y,
+      stroke: closing ? 'var(--color-accent-2)' : 'var(--color-accent)', 'stroke-width':2 }));
+    const mid = (nodes[i].x + nodes[i+1].x) / 2;
+    svg.appendChild(el('text', { x:mid, y:y-12, 'text-anchor':'middle', fill:'currentColor',
+      'font-size':11, opacity:.62 }, Math.round(times[i]) + 'ms'));
+  }
+
+  // the return arc: the ring closes where it began
+  const last = nodes[nodes.length-1].x;
+  svg.appendChild(el('path', {
+    d:`M ${last} ${y} C ${last} ${y+62}, ${pad} ${y+62}, ${pad} ${y}`,
+    fill:'none', stroke:'var(--color-accent-2)', 'stroke-width':1.5, 'stroke-dasharray':'4 3', opacity:.75 }));
+  svg.appendChild(el('text', { x:(last+pad)/2, y:y+76, 'text-anchor':'middle',
+    fill:'var(--color-accent-2)', 'font-size':11 }, 'ring closed at origin'));
+
+  nodes.forEach((n, i) => {
+    if (!n.r && i) return;
+    svg.appendChild(el('circle', { cx:n.x, cy:y, r:5, fill:'var(--color-bg)',
+      stroke: n.r.ring_close ? 'var(--color-accent-2)' : 'var(--color-accent)', 'stroke-width':2 }));
+    const g = el('text', { x:n.x, y:y+22, 'text-anchor':'middle', fill:'currentColor', 'font-size':11.5 },
+      CITY[n.r.region] || n.r.region);
+    svg.appendChild(g);
+    svg.appendChild(el('text', { x:n.x, y:y+36, 'text-anchor':'middle', fill:'currentColor',
+      'font-size':10, opacity:.55 }, n.r.region));
+  });
+}
+
+function drawLatChart(entries) {
+  const svg = $('#latChart'); svg.innerHTML = '';
+  const w = svg.clientWidth || 700, h = 150;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const data = entries.filter(e => e.total_ms != null).slice(0, 40).reverse();
+  if (!data.length) return;
+  const max = Math.max(...data.map(e => e.total_ms));
+  const bw = Math.max(2, (w / data.length) - 3);
+  data.forEach((e, i) => {
+    const bh = (e.total_ms / max) * (h - 26);
+    const x = i * (w / data.length);
+    svg.appendChild(el('rect', { x, y: h - 18 - bh, width: bw, height: bh,
+      fill: e.chain === 'verified' ? 'var(--color-accent)' : 'var(--color-accent-2-600)' }));
+  });
+  const med = quantile(data.map(e => e.total_ms), .5);
+  const my = h - 18 - (med / max) * (h - 26);
+  svg.appendChild(el('line', { x1:0, y1:my, x2:w, y2:my, stroke:'var(--color-accent-2)',
+    'stroke-width':1.5, 'stroke-dasharray':'4 3' }));
+  svg.appendChild(el('text', { x:w-2, y:my-5, 'text-anchor':'end',
+    fill:'var(--color-accent-2)', 'font-size':11 }, med + 'ms median'));
+}
+
+function drawShare(env) {
+  const host = $('#share'); host.innerHTML = '';
+  const receipts = (env && env.receipts) || [];
+  if (!receipts.length) { host.innerHTML = '<span class="muted" style="font-size:12px">—</span>'; return; }
+  const total = receipts.reduce((a,r) => a + r.d_total_us, 0);
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;height:10px;overflow:hidden;border-radius:1px';
+  receipts.forEach((r, i) => {
+    const seg = document.createElement('div');
+    seg.style.cssText = `flex:${r.d_total_us};background:${r.ring_close
+      ? 'var(--color-accent-2)' : 'var(--color-accent)'};opacity:${1 - i * 0.11}`;
+    seg.title = `${r.region} ${(r.d_total_us/1000).toFixed(0)}ms`;
+    bar.appendChild(seg);
+  });
+  host.appendChild(bar);
+  const legend = document.createElement('div');
+  legend.className = 'muted';
+  legend.style.cssText = 'font-size:11px;margin-top:5px';
+  legend.textContent = [...receipts]
+    .sort((a,b) => b.d_total_us - a.d_total_us)
+    .slice(0,3)
+    .map(r => `${CITY[r.region] || r.region} ${Math.round(r.d_total_us / total * 100)}%`)
+    .join(' · ');
+  host.appendChild(legend);
+}
+
+/* ---- rendering ---- */
+let currentEnv = null;
 
 function renderHops(env) {
   const tb = $('#hops tbody'); tb.innerHTML = '';
   for (const r of env.receipts || []) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${r.hop_index}</td><td class="mono">${r.region}</td>
-      <td>${CITY[r.region]||''}${r.ring_close?' <span class="dim">(ring close)</span>':''}</td>
-      <td class="num">${(r.d_write_us/1000).toFixed(1)}ms</td>
-      <td class="num">${(r.d_read_us/1000).toFixed(1)}ms</td>
-      <td class="num">${(r.d_total_us/1000).toFixed(1)}ms</td>
-      <td class="mono dim">${r.generation}</td>
-      <td class="${r.verified_readback?'ok':'bad'}">${r.verified_readback?'verified':'FAILED'}</td>`;
+    tr.innerHTML = `<td class="muted">${r.hop_index}</td><td>${r.region}</td>
+      <td>${CITY[r.region]||''}${r.ring_close?' <span class="muted italic">(ring close)</span>':''}</td>
+      <td class="r">${(r.d_write_us/1000).toFixed(1)}ms</td>
+      <td class="r">${(r.d_read_us/1000).toFixed(1)}ms</td>
+      <td class="r">${(r.d_total_us/1000).toFixed(1)}ms</td>
+      <td class="r muted" style="font-size:12px">${r.generation}</td>
+      <td style="color:${r.verified_readback?'var(--ok)':'var(--bad)'}">
+        ${r.verified_readback?'verified':'FAILED'}</td>`;
     tb.appendChild(tr);
   }
   $('#raw').textContent = JSON.stringify(env, null, 2);
+  $('#rcptcount').textContent = (env.receipts || []).length || '—';
+  drawRing(env); drawShare(env);
+  const slowest = (env.receipts || []).reduce((a,b) => !a || b.d_total_us > a.d_total_us ? b : a, null);
+  if (slowest) {
+    $('#worstHop').textContent = Math.round(slowest.d_total_us/1000);
+    $('#worstHopName').textContent = (CITY[slowest.region] || slowest.region) +
+      (slowest.ring_close ? ' (ring close)' : '');
+  }
+  $('#mapCaption').textContent = `${(env.receipts||[]).length} receipts · ` +
+    `${new Set((env.receipts||[]).map(r => r.region)).size} regions`;
+}
+
+function plates(v) {
+  return `<span class="paper">${v}</span>
+    <span class="plate plate-c" aria-hidden="true">${v}</span>
+    <span class="plate plate-m" aria-hidden="true">${v}</span>
+    <span class="plate plate-y" aria-hidden="true">${v}</span>`;
+}
+
+function renderStats() {
+  const h = load();
+  const done = h.filter(e => e.total_ms != null);
+  const okCount = h.filter(e => e.chain === 'verified').length;
+  const pct = h.length ? Math.round(okCount / h.length * 100) : 0;
+  const lat = done.map(e => e.total_ms);
+  const med = quantile(lat, .5), p95 = quantile(lat, .95);
+
+  $('#pctNum').innerHTML = plates(h.length ? pct : '—');
+  $('#medNum').innerHTML = plates(med != null ? med : '—');
+  $('#p95').textContent = p95 != null ? p95 + ' ms' : '—';
+  $('#broken').textContent = h.filter(e => e.chain === 'broken').length;
+  $('#broken').style.color = h.some(e => e.chain === 'broken') ? 'var(--bad)' : '';
+  $('#ringcount').textContent = h.length;
+  $('#histcount').textContent = h.length;
+  $('#okDetail').textContent = h.length
+    ? `${okCount} of ${h.length} chains verified in browser` : 'no rings yet';
+  $('#latDetail').textContent = lat.length
+    ? `${Math.min(...lat)}–${Math.max(...lat)} ms observed` : ' ';
+  $('#evCount').textContent = h.reduce((a,e) => a + ((e.logs && e.logs.events || []).length), 0);
+
+  sparkline($('#okSpark'), done.slice(0,30).reverse().map(e => e.chain === 'verified' ? 1 : 0),
+    'var(--color-accent)');
+  sparkline($('#latSpark'), done.slice(0,30).reverse().map(e => e.total_ms), 'var(--color-accent)');
+  drawLatChart(h);
 }
 
 function eventRows(events) {
   return events.map(e => `<tr>
-      <td>${e.hop_index}</td><td class="mono">${e.region || ''}</td>
+      <td class="muted">${(e.timestamp||'').slice(11,23)}</td>
+      <td class="muted">${e.hop_index}</td><td>${e.region || ''}</td>
       <td>${e.stage || ''}</td>
-      <td class="num">${e.duration_ms != null ? e.duration_ms + 'ms' : ''}</td>
-      <td class="mono dim">${e.link_hash ? e.link_hash.slice(0,12) + '…' : ''}</td>
-      <td class="${e.severity === 'ERROR' ? 'bad' : 'dim'}">${e.error || e.severity}</td>
+      <td class="r">${e.duration_ms != null ? e.duration_ms + 'ms' : ''}</td>
+      <td class="mono muted">${e.link_hash ? e.link_hash.slice(0,12) + '…' : ''}</td>
+      <td style="color:${e.severity === 'ERROR' ? 'var(--bad)' : ''}">${e.error || e.severity}</td>
     </tr>`).join('');
 }
 
 function renderHistory() {
   const h = load(); const tb = $('#hist tbody'); tb.innerHTML = '';
-  $('#histcount').textContent = `(${h.length}/${MAX})`;
   h.forEach((e, i) => {
-    const chain = e.chain === 'verified' ? '<span class="badge ok">verified</span>'
-      : e.chain === 'partial' ? '<span class="badge warn">partial</span>'
-      : '<span class="badge bad">broken</span>';
+    const chain = e.chain === 'verified' ? '<span class="tag tag-accent">verified</span>'
+      : e.chain === 'partial' ? '<span class="tag tag-neutral">partial</span>'
+      : '<span class="tag tag-accent-2">broken</span>';
     const evs = (e.logs && e.logs.events) || [];
-    const logs = !e.logs ? '<span class="dim">awaiting logs</span>'
-      : `<span class="${e.logs.failed?'bad':'ok'}">${evs.length} hop events</span>`;
-
+    const logs = !e.logs ? '<span class="muted italic">awaiting logs</span>'
+      : `<span style="color:${e.logs.failed?'var(--bad)':'var(--ok)'}">${evs.length} hop events</span>`;
     const tr = document.createElement('tr');
     tr.className = 'head';
     tr.innerHTML = `<td class="caret">${evs.length ? (e._open ? '▾' : '▸') : ''}</td>
-      <td class="dim">${new Date(e.at).toLocaleTimeString()}</td>
-      <td class="mono">${e.payload.slice(0,48)}</td>
-      <td class="num">${e.total_ms ?? '—'}${e.total_ms?'ms':''}</td><td>${chain}</td><td>${logs}</td>`;
-    tr.onclick = () => {   // expand in place; the panel grows the page rather than scrolling
-      const cur = load(); cur[i]._open = !cur[i]._open; save(cur); renderHistory();
-    };
+      <td class="muted">${new Date(e.at).toLocaleTimeString()}</td>
+      <td>${e.payload.slice(0,52)}</td>
+      <td class="r">${e.total_ms != null ? e.total_ms + 'ms' : '—'}</td>
+      <td>${chain}</td><td>${logs}</td>`;
+    tr.onclick = () => { const cur = load(); cur[i]._open = !cur[i]._open; save(cur); renderHistory(); };
     tb.appendChild(tr);
-
     if (e._open && evs.length) {
       const d = document.createElement('tr');
       d.className = 'detail';
-      d.innerHTML = `<td colspan="6"><table><thead><tr>
-          <th>hop</th><th>region</th><th>stage</th><th class="num">duration</th>
-          <th>link hash</th><th>detail</th></tr></thead>
+      d.innerHTML = `<td colspan="6"><table class="table"><thead><tr>
+          <th>Time</th><th>#</th><th>Region</th><th>Stage</th><th class="r">Duration</th>
+          <th>Link hash</th><th>Detail</th></tr></thead>
         <tbody>${eventRows(evs)}</tbody></table>
-        <div class="dim mono" style="margin-top:6px">trace ${e.uuid}</div></td>`;
+        <div class="muted mono" style="margin-top:6px">trace ${e.uuid}</div></td>`;
       tb.appendChild(d);
     }
   });
 }
 
+function renderAll() { renderHistory(); renderStats(); }
+
 async function sendRing(payload) {
   const uuid = crypto.randomUUID();
-  $('#ringmsg').textContent = '— ' + payload;
   const t0 = performance.now();
   let env = null, http = 0;
   try {
@@ -244,23 +633,23 @@ async function sendRing(payload) {
     });
     http = res.status; env = await res.json();
   } catch (err) {
-    $('#status').innerHTML = `<span class="bad">network error: ${err.message}</span>`;
+    $('#status').innerHTML = `<span style="color:var(--bad)">network error: ${err.message}</span>`;
     return { ok:false, uuid };
   }
   const ms = Math.round(performance.now() - t0);
+  currentEnv = env;
   renderHops(env);
 
   const v = await verifyChain(env);
   const complete = (env.receipts||[]).length === (env.core.sequence.length + 1);
-  $('#verdict').innerHTML = !v.ok ? '<span class="badge bad">CHAIN BROKEN</span>'
-    : complete ? '<span class="badge ok">Chain verified in browser</span>'
-    : '<span class="badge warn">partial chain — verified as far as it got</span>';
+  $('#verdict').innerHTML = !v.ok ? '<span class="tag tag-accent-2">chain broken</span>'
+    : complete ? '<span class="tag tag-accent">chain verified in browser</span>'
+    : '<span class="tag tag-neutral">partial chain — verified as far as it got</span>';
+  $('#chainhead').textContent = v.ok ? 'Chain head ' + v.detail : v.detail;
   $('#status').innerHTML = env.failure
-    ? `HTTP ${http} in ${ms}ms — <span class="bad">failed at hop ${env.failure.hop_index}
+    ? `HTTP ${http} in ${ms}ms — <span style="color:var(--bad)">failed at hop ${env.failure.hop_index}
        (${env.failure.region}) during ${env.failure.stage}: ${env.failure.error}</span>`
-    : `HTTP ${http} in ${ms}ms — ${env.receipts.length} receipts across
-       ${new Set(env.receipts.map(r=>r.region)).size} regions
-       <span class="dim mono">head ${v.detail.slice(0,16)}…</span>`;
+    : `HTTP ${http} in ${ms}ms · ${env.receipts.length} receipts`;
 
   remember({ uuid, payload, at:Date.now(), total_ms:ms,
              chain: !v.ok ? 'broken' : complete ? 'verified' : 'partial' });
@@ -269,25 +658,29 @@ async function sendRing(payload) {
 
 /* ---- log polling: server-side proxy, credentials never reach the browser ---- */
 let polling = null, paused = false;
+function stream(label, live) {
+  $('#streamlabel').innerHTML = live ? `<span class="live">● ${label}</span>` : label;
+  $('#pollstate').textContent = label;
+}
 async function poll() {
   const h = load();
-  if (paused) { $('#pollstate').textContent = 'paused'; return; }
-  if (!h.length || document.hidden) return;
-  // Idle to zero once nothing is recent; this is a demo, not a monitoring system.
-  if (!h.some(e => Date.now() - e.at < 10*60*1000)) { $('#pollstate').textContent = 'idle'; return; }
-  $('#pollstate').textContent = 'Polling logs…';
+  if (paused) { stream('paused', false); return; }
+  if (!h.length || document.hidden) { stream('idle', false); return; }
+  if (!h.some(e => Date.now() - e.at < 10*60*1000)) { stream('idle', false); return; }
+  stream('polling logs', true);
   try {
     const res = await fetch(BASE + '/logs', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ trace_uuids: h.map(e => e.uuid).slice(0, MAX), client_id: CLIENT_ID }) });
-    if (!res.ok) { $('#pollstate').innerHTML = '<span class="bad">log query failed</span>'; return; }
+    if (!res.ok) { stream('log query failed', false); return; }
     const { traces } = await res.json();
     for (const e of h) {
       const t = traces[e.uuid];
       if (t && t.events.length) e.logs = { events: t.events, failed: t.failed };
     }
-    save(h); renderHistory();
-    $('#pollstate').textContent = 'logs current';
-  } catch { $('#pollstate').innerHTML = '<span class="dim">logs unavailable</span>'; }
+    save(h); renderAll();
+    stream('logs current', false);
+    $('#logCaption').textContent = 'scoped to rings started by this browser';
+  } catch { stream('logs unavailable', false); }
 }
 
 /* ---- demo mode: sequential, bounded, survives failures ---- */
@@ -329,10 +722,9 @@ async function runDemo() {
     const r = await sendRing(payload);          // awaited: exactly one ring in flight
     sum += performance.now() - t0;
     r.ok ? ok++ : fail++;                        // a failure does not abort the run
-    $('#status').innerHTML += `<br><strong>Demo: ${i}/${MAX}</strong> —
-      <span class="ok">${ok} ok</span>, <span class="${fail?'bad':'dim'}">${fail} failed</span>,
+    $('#status').innerHTML += ` · <strong>demo ${i}/${MAX}</strong> — ${ok} ok, ${fail} failed,
       mean ${Math.round(sum/i)}ms`;
-    await new Promise(r => setTimeout(r, 250));
+    await new Promise(res => setTimeout(res, 250));
   }
   demoRunning = false; $('#demo').checked = false; $('#send').disabled = false;
 }
@@ -354,15 +746,15 @@ $('#pause').onclick = () => {
   $('#pause').textContent = paused ? 'Resume' : 'Pause';
   if (!paused) poll();
 };
-$('#clear').onclick = () => {
-  try { localStorage.removeItem(KEY); } catch {}
-  renderHistory();
-};
+$('#clear').onclick = () => { try { localStorage.removeItem(KEY); } catch {} renderAll(); };
 window.addEventListener('beforeunload', () => { demoRunning = false; });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+window.addEventListener('resize', () => { if (currentEnv) { drawRing(currentEnv); } renderStats(); });
 
-if (!ORIGIN) $('#status').innerHTML = '<span class="bad">Origin URL not configured</span>';
-renderHistory(); poll(); polling = setInterval(poll, 5000);
+$('#dateline').textContent = new Date().toLocaleDateString(undefined,
+  { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+if (!ORIGIN) $('#status').innerHTML = '<span style="color:var(--bad)">origin URL not configured</span>';
+renderAll(); poll(); polling = setInterval(poll, 5000);
 
 /* ?demo=yes starts the demo on load, so the bare URL can be handed to a grader and
    run itself. */
