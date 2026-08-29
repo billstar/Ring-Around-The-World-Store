@@ -39,6 +39,10 @@ const (
 	MaxSequence     = 8
 )
 
+// IsUUID reports whether s is a lowercase v4-shaped uuid. Used for the trace id and
+// for the client id, both of which reach a Cloud Logging filter.
+func IsUUID(s string) bool { return uuidRe.MatchString(s) }
+
 var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // Core is immutable for the life of a ring. The genesis hash covers exactly this.

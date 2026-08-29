@@ -3,7 +3,7 @@
 ## 1. Purpose
 
 Demonstrate a synchronous, globe-circling chain of custody: a small client-supplied
-string is carried through six GCP regions, written to and read back from a regional
+string is carried through five GCP regions, written to and read back from a regional
 GCS bucket in each, and returned to its origin — producing a tamper-evident,
 independently-anchored proof that the data physically visited every region.
 

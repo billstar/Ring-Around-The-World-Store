@@ -1,6 +1,6 @@
 # Ring Around The World Store
 
-A small string is carried through six GCP regions by nested **blocking** Cloud Run
+A small string is carried through five GCP regions by nested **blocking** Cloud Run
 calls, written to and read back from a regional GCS bucket in each, and returned to
 its origin — producing a tamper-evident, independently-anchored proof that the data
 physically visited every region.

@@ -203,6 +203,11 @@ type clientRequest struct {
 	TraceUUID string   `json:"trace_uuid"`
 	Payload   string   `json:"payload"`
 	Sequence  []string `json:"sequence"`
+	// ClientID identifies the browser that started this ring. It is stamped onto the
+	// origin's log events so /logs can return only rings that browser actually created.
+	// It is client-supplied and therefore scoping, NOT authentication — there is no
+	// end-user auth in this system by design.
+	ClientID string `json:"client_id"`
 }
 
 func (h *Handler) handleRing(w http.ResponseWriter, r *http.Request) {
@@ -214,6 +219,10 @@ func (h *Handler) handleRing(w http.ResponseWriter, r *http.Request) {
 	var req clientRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
 		http.Error(w, "bad request body", http.StatusBadRequest)
+		return
+	}
+	if req.ClientID != "" && !ring.IsUUID(req.ClientID) {
+		http.Error(w, "client_id must be a uuid", http.StatusBadRequest)
 		return
 	}
 	seq := req.Sequence
@@ -235,9 +244,12 @@ func (h *Handler) handleRing(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	started := time.Now()
+	h.log(logEntry{Message: "ring accepted", TraceUUID: e.Core.TraceUUID,
+		ClientID: req.ClientID, Stage: "accepted"})
+
 	if err := h.relay(ctx, e); err != nil {
 		h.log(logEntry{Severity: "ERROR", Message: "ring failed", TraceUUID: e.Core.TraceUUID,
-			HopIndex: e.HopIndex, Stage: "ring", Error: err.Error()})
+			ClientID: req.ClientID, HopIndex: e.HopIndex, Stage: "ring", Error: err.Error()})
 		writeJSON(w, http.StatusBadGateway, e)
 		return
 	}
@@ -253,7 +265,8 @@ func (h *Handler) handleRing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.log(logEntry{Message: "ring complete", TraceUUID: e.Core.TraceUUID,
-		HopIndex: e.HopIndex, Stage: "complete", DurationMS: time.Since(started).Milliseconds(),
+		ClientID: req.ClientID, HopIndex: e.HopIndex, Stage: "complete",
+		DurationMS: time.Since(started).Milliseconds(),
 		LinkHash: e.Receipts[len(e.Receipts)-1].LinkHash})
 	writeJSON(w, http.StatusOK, e)
 }

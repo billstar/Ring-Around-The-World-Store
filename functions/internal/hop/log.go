@@ -12,6 +12,7 @@ type logEntry struct {
 	Severity   string `json:"severity"`
 	Message    string `json:"message"`
 	TraceUUID  string `json:"trace_uuid"`
+	ClientID   string `json:"client_id,omitempty"` // set by the origin only; scopes /logs
 	HopIndex   int    `json:"hop_index"`
 	Region     string `json:"region"`
 	Stage      string `json:"stage"`

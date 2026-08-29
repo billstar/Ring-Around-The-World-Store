@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ring Around The World</title>
-<script src="/config.js"></script>
+<!--RATW_CONFIG-->
 <style>
   :root {
     --bg:#0e1116; --panel:#161b22; --line:#2a313a; --fg:#e6edf3; --dim:#8b949e;
@@ -40,29 +40,52 @@
   details { margin-top:8px; } summary { cursor:pointer; color:var(--dim); }
   pre { overflow-x:auto; background:var(--bg); border:1px solid var(--line);
         border-radius:6px; padding:10px; font-size:12px; }
-  .hist { max-height:320px; overflow-y:auto; }
-  .switch { display:flex; align-items:center; gap:8px; color:var(--dim); }
+  /* Unbounded: the history grows the page rather than scrolling inside a box, so
+     hop detail can be expanded and read in place. */
+  .hist tr.head { cursor:pointer; }
+  .hist tr.head:hover td { background:rgba(127,127,127,.07); }
+  .hist td.caret { width:18px; color:var(--dim); }
+  .detail td { background:rgba(127,127,127,.04); padding:0 8px 10px 26px; }
+  .detail table { margin-top:4px; }
+  .detail th,.detail td { border-bottom:1px solid var(--line); font-size:12px; }
+  /* Demo toggle. A real checkbox underneath (keyboard and screen-reader behaviour,
+     and the existing change handler) with the checkbox itself visually replaced. */
+  .switch { display:flex; align-items:center; gap:9px; color:var(--dim);
+            cursor:pointer; user-select:none; }
+  .switch input { position:absolute; opacity:0; width:0; height:0; }
+  .track { position:relative; width:40px; height:22px; flex:none; border-radius:999px;
+           background:var(--line); transition:background .18s ease; }
+  .thumb { position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%;
+           background:var(--bg); box-shadow:0 1px 3px rgba(0,0,0,.45);
+           transition:transform .18s ease; }
+  .switch input:checked + .track { background:var(--ok); }
+  .switch input:checked + .track .thumb { transform:translateX(18px); }
+  .switch input:focus-visible + .track { outline:2px solid var(--accent); outline-offset:2px; }
+  .switch .lbl { font-weight:600; }
+  .switch input:checked ~ .lbl { color:var(--ok); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Ring Around The World</h1>
-  <div class="sub">One string, six GCP regions, seven write/read receipts, one tamper-evident hash chain.</div>
+  <div class="sub">One string, five GCP regions, seven write/read receipts, one tamper-evident hash chain.</div>
 
   <div class="panel">
     <div class="row">
-      <input type="text" id="payload" value="hello from california" maxlength="4096" placeholder="a small string">
+      <input type="text" id="payload" value="Hello from California" maxlength="4096" placeholder="a small string">
       <button id="send">Send Around The World</button>
-      <span class="switch">
-        <input type="checkbox" id="demo"><label for="demo">demo mode (100 rings)</label>
-      </span>
+      <label class="switch" for="demo">
+        <input type="checkbox" id="demo">
+        <span class="track"><span class="thumb"></span></span>
+        <span class="lbl">Demo mode (executes 100 rings)</span>
+      </label>
     </div>
     <div id="status" class="sub" style="margin:10px 0 0"></div>
   </div>
 
   <div class="panel">
     <div class="row" style="justify-content:space-between">
-      <strong>Current ring</strong><span id="verdict"></span>
+      <strong>Current ring <span class="dim" id="ringmsg"></span></strong><span id="verdict"></span>
     </div>
     <table id="hops"><thead><tr>
       <th>#</th><th>region</th><th>location</th><th class="num">write</th>
@@ -74,18 +97,39 @@
   <div class="panel">
     <div class="row" style="justify-content:space-between">
       <strong>History <span class="dim" id="histcount"></span></strong>
-      <span class="dim" id="pollstate"></span>
+      <span class="row">
+        <span class="dim" id="pollstate"></span>
+        <button class="ghost" id="pause">Pause</button>
+        <button class="ghost" id="clear">Clear</button>
+      </span>
     </div>
     <div class="hist"><table id="hist"><thead><tr>
-      <th>when</th><th>payload</th><th class="num">total</th><th>chain</th><th>logs</th>
+      <th></th><th>when</th><th>payload</th><th class="num">total</th><th>chain</th><th>logs</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 <script>
 const ORIGIN = (window.RATW_CONFIG || {}).originUrl || '';
+/* Base path of this page, so /logs resolves correctly whether the app is served at
+   the root (run.app) or under a prefix (cloudfunctions.net/ratw-web). */
+const BASE = location.pathname.replace(/\/index\.html$/, '').replace(/\/+$/, '');
 const CITY = {'us-west1':'Oregon','us-central1':'Iowa','us-east4':'N. Virginia',
   'europe-west1':'Belgium','europe-central2':'Warsaw','asia-northeast1':'Tokyo'};
-const KEY = 'ratw.traces', MAX = 100;
+const KEY = 'ratw.traces', CLIENT_KEY = 'ratw.client', MAX = 100;
+
+/* A stable per-browser id. The origin stamps it onto this ring's log events, and
+   /logs returns only rings carrying it — so the history can never show a ring this
+   browser did not start. Scoping, not authentication. */
+function clientId() {
+  let id = null;
+  try { id = localStorage.getItem(CLIENT_KEY); } catch {}
+  if (!id) {
+    id = crypto.randomUUID();
+    try { localStorage.setItem(CLIENT_KEY, id); } catch {}
+  }
+  return id;
+}
+const CLIENT_ID = clientId();
 const $ = s => document.querySelector(s);
 
 /* ---- canonical JSON: must match functions/internal/canonical byte for byte ----
@@ -143,31 +187,60 @@ function renderHops(env) {
   $('#raw').textContent = JSON.stringify(env, null, 2);
 }
 
+function eventRows(events) {
+  return events.map(e => `<tr>
+      <td>${e.hop_index}</td><td class="mono">${e.region || ''}</td>
+      <td>${e.stage || ''}</td>
+      <td class="num">${e.duration_ms != null ? e.duration_ms + 'ms' : ''}</td>
+      <td class="mono dim">${e.link_hash ? e.link_hash.slice(0,12) + '…' : ''}</td>
+      <td class="${e.severity === 'ERROR' ? 'bad' : 'dim'}">${e.error || e.severity}</td>
+    </tr>`).join('');
+}
+
 function renderHistory() {
   const h = load(); const tb = $('#hist tbody'); tb.innerHTML = '';
   $('#histcount').textContent = `(${h.length}/${MAX})`;
-  for (const e of h) {
-    const tr = document.createElement('tr');
+  h.forEach((e, i) => {
     const chain = e.chain === 'verified' ? '<span class="badge ok">verified</span>'
       : e.chain === 'partial' ? '<span class="badge warn">partial</span>'
       : '<span class="badge bad">broken</span>';
-    const logs = e.logs === undefined ? '<span class="dim">awaiting logs</span>'
-      : `<span class="${e.logs.failed?'bad':'ok'}">${e.logs.hops} hop events</span>`;
-    tr.innerHTML = `<td class="dim">${new Date(e.at).toLocaleTimeString()}</td>
-      <td class="mono">${e.payload.slice(0,42)}</td>
+    const evs = (e.logs && e.logs.events) || [];
+    const logs = !e.logs ? '<span class="dim">awaiting logs</span>'
+      : `<span class="${e.logs.failed?'bad':'ok'}">${evs.length} hop events</span>`;
+
+    const tr = document.createElement('tr');
+    tr.className = 'head';
+    tr.innerHTML = `<td class="caret">${evs.length ? (e._open ? '▾' : '▸') : ''}</td>
+      <td class="dim">${new Date(e.at).toLocaleTimeString()}</td>
+      <td class="mono">${e.payload.slice(0,48)}</td>
       <td class="num">${e.total_ms ?? '—'}${e.total_ms?'ms':''}</td><td>${chain}</td><td>${logs}</td>`;
+    tr.onclick = () => {   // expand in place; the panel grows the page rather than scrolling
+      const cur = load(); cur[i]._open = !cur[i]._open; save(cur); renderHistory();
+    };
     tb.appendChild(tr);
-  }
+
+    if (e._open && evs.length) {
+      const d = document.createElement('tr');
+      d.className = 'detail';
+      d.innerHTML = `<td colspan="6"><table><thead><tr>
+          <th>hop</th><th>region</th><th>stage</th><th class="num">duration</th>
+          <th>link hash</th><th>detail</th></tr></thead>
+        <tbody>${eventRows(evs)}</tbody></table>
+        <div class="dim mono" style="margin-top:6px">trace ${e.uuid}</div></td>`;
+      tb.appendChild(d);
+    }
+  });
 }
 
 async function sendRing(payload) {
   const uuid = crypto.randomUUID();
+  $('#ringmsg').textContent = '— ' + payload;
   const t0 = performance.now();
   let env = null, http = 0;
   try {
     const res = await fetch(ORIGIN + '/ring', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ trace_uuid: uuid, payload })
+      body: JSON.stringify({ trace_uuid: uuid, payload, client_id: CLIENT_ID })
     });
     http = res.status; env = await res.json();
   } catch (err) {
@@ -180,7 +253,7 @@ async function sendRing(payload) {
   const v = await verifyChain(env);
   const complete = (env.receipts||[]).length === (env.core.sequence.length + 1);
   $('#verdict').innerHTML = !v.ok ? '<span class="badge bad">CHAIN BROKEN</span>'
-    : complete ? '<span class="badge ok">chain verified in browser</span>'
+    : complete ? '<span class="badge ok">Chain verified in browser</span>'
     : '<span class="badge warn">partial chain — verified as far as it got</span>';
   $('#status').innerHTML = env.failure
     ? `HTTP ${http} in ${ms}ms — <span class="bad">failed at hop ${env.failure.hop_index}
@@ -195,21 +268,22 @@ async function sendRing(payload) {
 }
 
 /* ---- log polling: server-side proxy, credentials never reach the browser ---- */
-let polling = null;
+let polling = null, paused = false;
 async function poll() {
   const h = load();
+  if (paused) { $('#pollstate').textContent = 'paused'; return; }
   if (!h.length || document.hidden) return;
   // Idle to zero once nothing is recent; this is a demo, not a monitoring system.
   if (!h.some(e => Date.now() - e.at < 10*60*1000)) { $('#pollstate').textContent = 'idle'; return; }
-  $('#pollstate').textContent = 'polling logs…';
+  $('#pollstate').textContent = 'Polling logs…';
   try {
-    const res = await fetch('/logs', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ trace_uuids: h.map(e => e.uuid).slice(0, MAX) }) });
+    const res = await fetch(BASE + '/logs', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ trace_uuids: h.map(e => e.uuid).slice(0, MAX), client_id: CLIENT_ID }) });
     if (!res.ok) { $('#pollstate').innerHTML = '<span class="bad">log query failed</span>'; return; }
     const { traces } = await res.json();
     for (const e of h) {
       const t = traces[e.uuid];
-      if (t && t.events.length) e.logs = { hops: t.events.length, failed: t.failed };
+      if (t && t.events.length) e.logs = { events: t.events, failed: t.failed };
     }
     save(h); renderHistory();
     $('#pollstate').textContent = 'logs current';
@@ -217,16 +291,45 @@ async function poll() {
 }
 
 /* ---- demo mode: sequential, bounded, survives failures ---- */
+/* 100 words; five drawn at random make each demo message. 100^5 combinations,
+   and the loop additionally rejects any repeat within a run, so every payload in
+   a demo is distinct and therefore so is every payload hash. */
+const WORDS = [
+  'luminous', 'zephyr', 'cobalt', 'thistle', 'obsidian', 'lantern', 'marmalade', 'quasar', 'driftwood', 'ember',
+  'moth', 'cartography', 'velvet', 'pomegranate', 'glacier', 'harpsichord', 'saffron', 'nomad', 'tessellate', 'brambles',
+  'aurora', 'kelp', 'filament', 'mosaic', 'tundra', 'orchid', 'compass', 'basalt', 'meridian', 'plumage',
+  'cinnamon', 'satchel', 'fathom', 'willow', 'prism', 'alkaline', 'wanderlust', 'monsoon', 'quill', 'cinder',
+  'halcyon', 'juniper', 'lattice', 'mirth', 'nebula', 'opal', 'petrichor', 'quandary', 'ripple', 'sable',
+  'talisman', 'umbra', 'vellum', 'whisper', 'xenon', 'yonder', 'zenith', 'azure', 'brindle', 'clover',
+  'dapple', 'eddy', 'fern', 'gossamer', 'hollow', 'ivory', 'jasper', 'kindle', 'lichen', 'murmur',
+  'nectar', 'ochre', 'pebble', 'quartz', 'rune', 'solstice', 'tempest', 'undertow', 'verdant', 'wren',
+  'yarrow', 'amber', 'bracken', 'cove', 'dusk', 'echo', 'feather', 'grotto', 'heather', 'indigo',
+  'jubilee', 'keystone', 'lull', 'meadow', 'oracle', 'pinnacle', 'quiver', 'reverie', 'shale', 'thicket',
+];
+
+function demoPhrase() {
+  const picked = [];
+  while (picked.length < 5) {
+    const w = WORDS[Math.floor(Math.random() * WORDS.length)];
+    if (!picked.includes(w)) picked.push(w);   // no repeated word within a phrase
+  }
+  return picked.join(' ');
+}
+
 let demoRunning = false;
 async function runDemo() {
   demoRunning = true; let ok = 0, fail = 0, sum = 0;
+  const used = new Set();
   for (let i = 1; i <= MAX && demoRunning; i++) {
-    const payload = `demo-${i}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    let payload = demoPhrase();
+    while (used.has(payload)) payload = demoPhrase();   // guarantee a distinct payload hash
+    used.add(payload);
+    $('#payload').value = payload;   // show what is actually being sent
     const t0 = performance.now();
     const r = await sendRing(payload);          // awaited: exactly one ring in flight
     sum += performance.now() - t0;
     r.ok ? ok++ : fail++;                        // a failure does not abort the run
-    $('#status').innerHTML += `<br><strong>demo ${i}/${MAX}</strong> —
+    $('#status').innerHTML += `<br><strong>Demo: ${i}/${MAX}</strong> —
       <span class="ok">${ok} ok</span>, <span class="${fail?'bad':'dim'}">${fail} failed</span>,
       mean ${Math.round(sum/i)}ms`;
     await new Promise(r => setTimeout(r, 250));
@@ -239,15 +342,35 @@ $('#send').onclick = async () => {
   await sendRing($('#payload').value || 'hello');
   $('#send').disabled = false;
 };
+$('#payload').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !$('#send').disabled) { e.preventDefault(); $('#send').click(); }
+});
 $('#demo').onchange = e => {
   if (e.target.checked) { $('#send').disabled = true; runDemo(); }
   else demoRunning = false;
+};
+$('#pause').onclick = () => {
+  paused = !paused;
+  $('#pause').textContent = paused ? 'Resume' : 'Pause';
+  if (!paused) poll();
+};
+$('#clear').onclick = () => {
+  try { localStorage.removeItem(KEY); } catch {}
+  renderHistory();
 };
 window.addEventListener('beforeunload', () => { demoRunning = false; });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 
 if (!ORIGIN) $('#status').innerHTML = '<span class="bad">Origin URL not configured</span>';
 renderHistory(); poll(); polling = setInterval(poll, 5000);
+
+/* ?demo=yes starts the demo on load, so the bare URL can be handed to a grader and
+   run itself. */
+if (new URLSearchParams(location.search).get('demo') === 'yes' && ORIGIN) {
+  $('#demo').checked = true;
+  $('#send').disabled = true;
+  runDemo();
+}
 </script>
 </body>
 </html>

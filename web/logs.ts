@@ -28,6 +28,34 @@ export interface TraceView {
   events: HopEvent[];
 }
 
+export function validateClientId(input: unknown): string {
+  if (typeof input !== 'string' || !UUID_RE.test(input)) throw new Error('client_id must be a uuid');
+  return input;
+}
+
+// Returns the subset of `uuids` whose rings were actually started by this client.
+// The origin stamps client_id onto its own log events, so ownership is a property of
+// the logs rather than something the caller asserts. This is scoping, not auth: a
+// client_id is client-supplied, and there is no end-user authentication by design.
+export async function ownedTraces(clientId: string, uuids: string[]): Promise<Set<string>> {
+  if (uuids.length === 0) return new Set();
+  const [entries] = await logging.getEntries({
+    filter: [
+      'resource.type="cloud_run_revision"',
+      `jsonPayload.client_id="${clientId}"`,
+      `timestamp >= "${new Date(Date.now() - 24 * 3600 * 1000).toISOString()}"`,
+    ].join(' AND '),
+    orderBy: 'timestamp desc',
+    pageSize: 1000,
+  });
+  const owned = new Set<string>();
+  for (const e of entries) {
+    const u = (e.data as any)?.trace_uuid;
+    if (u) owned.add(u);
+  }
+  return new Set(uuids.filter((u) => owned.has(u)));
+}
+
 export function validateUuids(input: unknown): string[] {
   if (!Array.isArray(input)) throw new Error('trace_uuids must be an array');
   if (input.length > MAX_UUIDS) throw new Error(`at most ${MAX_UUIDS} trace_uuids`);
