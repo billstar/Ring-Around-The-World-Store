@@ -186,24 +186,38 @@ sort of thing a reviewer should catch and ask about.
 ## 8. Terraform layout
 
 ```
+functions/                     # Go module `ratw`
+  cmd/ratw/main.go             # one binary, six deployments
+  cmd/ratw/store_local.go      # !gcp: refuses to run without RATW_LOCAL
+  internal/canonical/          # THE deterministic JSON encoder (rules 1-4)
+  internal/ring/envelope.go    # schema, FR-2 validation, routing
+  internal/ring/chain.go       # genesis, link hashing, full-chain verification
+  internal/ring/chain_test.go  # 12 tamper vectors + canonical-form edge cases
+  internal/store/store.go      # Store interface + GCS-compatible CRC32C
+  internal/store/local.go      # filesystem Store (local PoC)
+  internal/hop/config.go       # env-driven config; RATW_PEERS SSRF firebreak
+  internal/hop/handler.go      # /ring /hop /close, admit -> process -> forward
+  internal/hop/forward.go      # blocking call + deadline propagation header
+  internal/hop/auth_local.go   # !gcp build tag: no OIDC
+  internal/hop/log.go          # structured Cloud Logging JSON
+scripts/local-ring.sh          # runs all six hops as processes; RATW_BREAK=<region>
+scripts/show-ring.py           # independent 2nd chain verifier (proves portability)
 terraform/
-  main.tf          # provider, project, API enablement, random suffix
-  regions.tf       # locals: the ring, region → successor mapping
-  module/hop/      # bucket + SA + IAM + function + invoker binding
-  outputs.tf       # the ingress URL
-functions/
-  main.go          # entrypoint, /ring /hop /close routing
-  envelope.go      # schema, validation, hop_index rules
-  chain.go         # canonical marshal + link hashing + verification
-  store.go         # GCS write / readback / CRC32C
-  forward.go       # OIDC token minting, deadline propagation
-  chain_test.go    # the test that matters
-web/                 # ratw-web: TypeScript on Node
-  index.ts         # Express-ish: GET / (static), POST /logs
-  logs.ts          # @google-cloud/logging query + UUID validation
-  public/index.html# single-file SPA: WebCrypto verifier, history, demo mode
-  package.json
+  main.tf                      # provider, APIs, random suffix
+  regions.tf                   # the ring, region -> successor
+  module/hop/                  # bucket + SA + IAM + function + invoker binding
+  outputs.tf
+web/                           # ratw-web: TypeScript on Node
+  index.ts                     # GET / (static), POST /logs
+  logs.ts                      # @google-cloud/logging + UUID validation
+  public/index.html            # SPA: WebCrypto verifier, history, demo mode
 ```
+
+**Build tags.** Cloud-only code (OIDC minting, GCS client) lives behind `-tags gcp`;
+the default build has no cloud dependencies at all, so the local ring runs with zero
+modules downloaded and cannot accidentally reach for credentials. `auth_local.go`
+hard-fails if built without the tag while `RATW_LOCAL` is unset, so the two paths
+cannot silently diverge.
 
 Bootstrapping note: Cloud Run functions need their source as a zip in a GCS bucket, and
 each hop needs its *successor's* URL — a cyclic dependency, since Tokyo points back at
