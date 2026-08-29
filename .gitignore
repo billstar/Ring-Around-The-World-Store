@@ -20,3 +20,6 @@ functions/build/
 
 # Build zips regenerated on every apply; churn on every commit.
 terraform/.build/
+
+# Personal write-up: kept local, not published.
+Rationale.md
