@@ -218,7 +218,7 @@ func (h *Handler) handleRing(w http.ResponseWriter, r *http.Request) {
 	}
 	seq := req.Sequence
 	if len(seq) == 0 {
-		seq = ring.CanonicalRing
+		seq = ring.DefaultSequence()
 	}
 	e := &ring.Envelope{
 		Version: 1,

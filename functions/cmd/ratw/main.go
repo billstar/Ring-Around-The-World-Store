@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -26,7 +27,7 @@ func main() {
 		}
 		st, err = store.NewLocal(dir, cfg.Bucket)
 	} else {
-		st, err = newCloudStore(cfg.Bucket)
+		st, err = store.NewGCS(context.Background(), cfg.Bucket)
 	}
 	if err != nil {
 		log.Fatalf("store: %v", err)

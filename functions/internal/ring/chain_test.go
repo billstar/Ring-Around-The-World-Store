@@ -11,7 +11,7 @@ func core() Core {
 	return Core{
 		TraceUUID: "8f14e45f-ceea-467a-9c3b-1f2a4d5e6b70",
 		Payload:   "hello world",
-		Sequence:  CanonicalRing,
+		Sequence:  DefaultSequence(),
 		CreatedAt: "2026-08-29T19:04:11.221Z",
 	}
 }
@@ -36,15 +36,15 @@ func rcpt(region string) Receipt {
 func buildRing(t *testing.T) *Envelope {
 	t.Helper()
 	e := env()
-	for i, r := range CanonicalRing {
+	for i, r := range DefaultSequence() {
 		rc := rcpt(r)
 		rc.HopIndex = i
 		if err := e.Append(rc); err != nil {
 			t.Fatalf("append %s: %v", r, err)
 		}
 	}
-	closing := rcpt(CanonicalRing[0])
-	closing.HopIndex = len(CanonicalRing)
+	closing := rcpt(DefaultSequence()[0])
+	closing.HopIndex = len(DefaultSequence())
 	closing.RingClose = true
 	if err := e.Append(closing); err != nil {
 		t.Fatalf("append close: %v", err)
@@ -173,12 +173,25 @@ func TestGenesisGoldenVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("genesis golden vector = %s", got)
-	if len(got) != 64 {
-		t.Fatalf("expected a 64-char hex digest, got %q", got)
+	// Pinned. The Python and browser verifiers must reproduce this exact digest; if
+	// the implementations ever diverge, this is the value to bisect against.
+	const want = "55fc7498426a6500068d2fa6f43ac311c7dcfff4ec43e5b1940ebd74de0f0049"
+	if got != want {
+		t.Fatalf("genesis golden vector changed:\n got %s\nwant %s", got, want)
 	}
 	if again, _ := Genesis(core()); got != again {
 		t.Fatal("genesis is not deterministic")
+	}
+}
+
+// DefaultSequence must hand out a copy: an envelope that mutates its own sequence
+// must not change the default ring for every later request in the process.
+func TestDefaultSequenceIsNotAliased(t *testing.T) {
+	a := DefaultSequence()
+	a[0], a[1] = a[1], a[0]
+	b := DefaultSequence()
+	if b[0] != "us-west1" || b[1] != "us-central1" {
+		t.Fatalf("mutating one caller's sequence corrupted the shared default: %v", b)
 	}
 }
 

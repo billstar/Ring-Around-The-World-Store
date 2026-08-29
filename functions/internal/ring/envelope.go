@@ -3,6 +3,7 @@ package ring
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"time"
 )
 
@@ -17,11 +18,18 @@ var Regions = map[string]string{
 	"asia-northeast1": "Tokyo",
 }
 
-// CanonicalRing is the default sequence used when the client supplies none (FR-1.4).
-var CanonicalRing = []string{
+// canonicalRing is the default sequence used when the client supplies none (FR-1.4).
+// It is unexported and only ever handed out via DefaultSequence, which copies it.
+// Handing out the slice itself would alias one shared backing array into every
+// envelope in the process, where a single in-place mutation would silently change
+// the default ring for all subsequent requests.
+var canonicalRing = []string{
 	"us-west1", "us-central1", "us-east4",
 	"europe-west1", "europe-central2", "asia-northeast1",
 }
+
+// DefaultSequence returns a fresh copy of the canonical ring.
+func DefaultSequence() []string { return slices.Clone(canonicalRing) }
 
 const (
 	MaxPayloadBytes = 4096

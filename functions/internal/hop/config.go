@@ -20,6 +20,7 @@ type Config struct {
 	AllowedOrigin string // exact CORS origin for /ring; never "*"
 	DeadlineSec   int
 	Port          string
+	SelfURL       string // this service's own base URL; the audience /close validates against
 }
 
 func LoadConfig() (Config, error) {
@@ -29,6 +30,7 @@ func LoadConfig() (Config, error) {
 		IsOrigin:      os.Getenv("RATW_IS_ORIGIN") == "true",
 		Local:         os.Getenv("RATW_LOCAL") == "true",
 		AllowedOrigin: os.Getenv("RATW_ALLOWED_ORIGIN"),
+		SelfURL:       strings.TrimSuffix(os.Getenv("RATW_SELF_URL"), "/"),
 		Port:          os.Getenv("PORT"),
 	}
 	if c.Port == "" {
@@ -39,6 +41,9 @@ func LoadConfig() (Config, error) {
 	}
 	if c.Bucket == "" {
 		return c, fmt.Errorf("RATW_BUCKET is required")
+	}
+	if c.IsOrigin && !c.Local && c.SelfURL == "" {
+		return c, fmt.Errorf("RATW_SELF_URL is required on the origin to validate /close callers")
 	}
 	c.DeadlineSec = 120
 	if v := os.Getenv("RATW_DEADLINE_SEC"); v != "" {

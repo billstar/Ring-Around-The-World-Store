@@ -1,0 +1,19 @@
+# Terraform state contains the deployed service URLs. Never commit it.
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!example.tfvars
+crash.log
+
+# Generated at deploy time from Terraform outputs; contains the public origin URL.
+web/public/config.js
+.env
+.env.*
+
+# Build artifacts
+node_modules/
+web/dist/
+functions/build/
+/tmp/

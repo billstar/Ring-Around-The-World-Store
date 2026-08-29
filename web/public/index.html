@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ring Around The World</title>
+<script src="/config.js"></script>
+<style>
+  :root {
+    --bg:#0e1116; --panel:#161b22; --line:#2a313a; --fg:#e6edf3; --dim:#8b949e;
+    --ok:#3fb950; --bad:#f85149; --warn:#d29922; --accent:#58a6ff;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#fff; --panel:#f6f8fa; --line:#d8dee4; --fg:#1f2328; --dim:#636c76;
+            --ok:#1a7f37; --bad:#cf222e; --warn:#9a6700; --accent:#0969da; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; padding:24px 20px 60px; }
+  h1 { font-size:20px; margin:0 0 2px; letter-spacing:-.01em; }
+  .sub { color:var(--dim); font-size:13px; margin-bottom:20px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input[type=text] { flex:1; min-width:240px; background:var(--bg); color:var(--fg);
+    border:1px solid var(--line); border-radius:6px; padding:8px 10px; font:inherit; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px;
+    padding:8px 14px; font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  td.num { text-align:right; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)} .dim{color:var(--dim)}
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+  .badge.ok{background:rgba(63,185,80,.15); color:var(--ok)}
+  .badge.bad{background:rgba(248,81,73,.15); color:var(--bad)}
+  .badge.warn{background:rgba(210,153,34,.15); color:var(--warn)}
+  details { margin-top:8px; } summary { cursor:pointer; color:var(--dim); }
+  pre { overflow-x:auto; background:var(--bg); border:1px solid var(--line);
+        border-radius:6px; padding:10px; font-size:12px; }
+  .hist { max-height:320px; overflow-y:auto; }
+  .switch { display:flex; align-items:center; gap:8px; color:var(--dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ring Around The World</h1>
+  <div class="sub">One string, six GCP regions, seven write/read receipts, one tamper-evident hash chain.</div>
+
+  <div class="panel">
+    <div class="row">
+      <input type="text" id="payload" value="hello from california" maxlength="4096" placeholder="a small string">
+      <button id="send">Send Around The World</button>
+      <span class="switch">
+        <input type="checkbox" id="demo"><label for="demo">demo mode (100 rings)</label>
+      </span>
+    </div>
+    <div id="status" class="sub" style="margin:10px 0 0"></div>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <strong>Current ring</strong><span id="verdict"></span>
+    </div>
+    <table id="hops"><thead><tr>
+      <th>#</th><th>region</th><th>location</th><th class="num">write</th>
+      <th class="num">read</th><th class="num">hop</th><th>generation</th><th>readback</th>
+    </tr></thead><tbody></tbody></table>
+    <details><summary>raw envelope</summary><pre id="raw" class="mono"></pre></details>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <strong>History <span class="dim" id="histcount"></span></strong>
+      <span class="dim" id="pollstate"></span>
+    </div>
+    <div class="hist"><table id="hist"><thead><tr>
+      <th>when</th><th>payload</th><th class="num">total</th><th>chain</th><th>logs</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+<script>
+const ORIGIN = (window.RATW_CONFIG || {}).originUrl || '';
+const CITY = {'us-west1':'Oregon','us-central1':'Iowa','us-east4':'N. Virginia',
+  'europe-west1':'Belgium','europe-central2':'Warsaw','asia-northeast1':'Tokyo'};
+const KEY = 'ratw.traces', MAX = 100;
+const $ = s => document.querySelector(s);
+
+/* ---- canonical JSON: must match functions/internal/canonical byte for byte ----
+   sorted keys at every depth, no HTML escaping (JSON.stringify never escapes),
+   tightest separators, no trailing newline. Integers below 2^53 print as digits,
+   which covers GCS generation numbers (~1.7e15). */
+function canonical(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']';
+  return '{' + Object.keys(v).sort()
+    .map(k => JSON.stringify(k) + ':' + canonical(v[k])).join(',') + '}';
+}
+const enc = new TextEncoder();
+async function sha256Hex(bytes) {
+  const d = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2,'0')).join('');
+}
+const hexToBytes = h => new Uint8Array(h.match(/../g).map(x => parseInt(x,16)));
+
+/* Independent client-side verification. The server asserts nothing we don't recheck. */
+async function verifyChain(env) {
+  let prev = await sha256Hex(enc.encode(canonical(env.core)));
+  const receipts = env.receipts || [];
+  for (let i = 0; i < receipts.length; i++) {
+    const r = receipts[i];
+    if (r.prev_link_hash !== prev)
+      return { ok:false, detail:`receipt ${i} (${r.region}): prev_link_hash breaks the chain` };
+    const body = { ...r }; delete body.link_hash;
+    const msg = new Uint8Array([...hexToBytes(prev), ...enc.encode(canonical(body))]);
+    if (await sha256Hex(msg) !== r.link_hash)
+      return { ok:false, detail:`receipt ${i} (${r.region}): link_hash mismatch — receipt altered` };
+    prev = r.link_hash;
+  }
+  return { ok:true, detail:prev };
+}
+
+/* ---- history in localStorage: the only record of which rings are ours ---- */
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
+const save = h => { try { localStorage.setItem(KEY, JSON.stringify(h.slice(0, MAX))); } catch {} };
+function remember(entry) { const h = load(); h.unshift(entry); save(h); renderHistory(); }
+
+function renderHops(env) {
+  const tb = $('#hops tbody'); tb.innerHTML = '';
+  for (const r of env.receipts || []) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.hop_index}</td><td class="mono">${r.region}</td>
+      <td>${CITY[r.region]||''}${r.ring_close?' <span class="dim">(ring close)</span>':''}</td>
+      <td class="num">${(r.d_write_us/1000).toFixed(1)}ms</td>
+      <td class="num">${(r.d_read_us/1000).toFixed(1)}ms</td>
+      <td class="num">${(r.d_total_us/1000).toFixed(1)}ms</td>
+      <td class="mono dim">${r.generation}</td>
+      <td class="${r.verified_readback?'ok':'bad'}">${r.verified_readback?'verified':'FAILED'}</td>`;
+    tb.appendChild(tr);
+  }
+  $('#raw').textContent = JSON.stringify(env, null, 2);
+}
+
+function renderHistory() {
+  const h = load(); const tb = $('#hist tbody'); tb.innerHTML = '';
+  $('#histcount').textContent = `(${h.length}/${MAX})`;
+  for (const e of h) {
+    const tr = document.createElement('tr');
+    const chain = e.chain === 'verified' ? '<span class="badge ok">verified</span>'
+      : e.chain === 'partial' ? '<span class="badge warn">partial</span>'
+      : '<span class="badge bad">broken</span>';
+    const logs = e.logs === undefined ? '<span class="dim">awaiting logs</span>'
+      : `<span class="${e.logs.failed?'bad':'ok'}">${e.logs.hops} hop events</span>`;
+    tr.innerHTML = `<td class="dim">${new Date(e.at).toLocaleTimeString()}</td>
+      <td class="mono">${e.payload.slice(0,42)}</td>
+      <td class="num">${e.total_ms ?? '—'}${e.total_ms?'ms':''}</td><td>${chain}</td><td>${logs}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+async function sendRing(payload) {
+  const uuid = crypto.randomUUID();
+  const t0 = performance.now();
+  let env = null, http = 0;
+  try {
+    const res = await fetch(ORIGIN + '/ring', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ trace_uuid: uuid, payload })
+    });
+    http = res.status; env = await res.json();
+  } catch (err) {
+    $('#status').innerHTML = `<span class="bad">network error: ${err.message}</span>`;
+    return { ok:false, uuid };
+  }
+  const ms = Math.round(performance.now() - t0);
+  renderHops(env);
+
+  const v = await verifyChain(env);
+  const complete = (env.receipts||[]).length === (env.core.sequence.length + 1);
+  $('#verdict').innerHTML = !v.ok ? '<span class="badge bad">CHAIN BROKEN</span>'
+    : complete ? '<span class="badge ok">chain verified in browser</span>'
+    : '<span class="badge warn">partial chain — verified as far as it got</span>';
+  $('#status').innerHTML = env.failure
+    ? `HTTP ${http} in ${ms}ms — <span class="bad">failed at hop ${env.failure.hop_index}
+       (${env.failure.region}) during ${env.failure.stage}: ${env.failure.error}</span>`
+    : `HTTP ${http} in ${ms}ms — ${env.receipts.length} receipts across
+       ${new Set(env.receipts.map(r=>r.region)).size} regions
+       <span class="dim mono">head ${v.detail.slice(0,16)}…</span>`;
+
+  remember({ uuid, payload, at:Date.now(), total_ms:ms,
+             chain: !v.ok ? 'broken' : complete ? 'verified' : 'partial' });
+  return { ok: http === 200 && v.ok && complete, uuid };
+}
+
+/* ---- log polling: server-side proxy, credentials never reach the browser ---- */
+let polling = null;
+async function poll() {
+  const h = load();
+  if (!h.length || document.hidden) return;
+  // Idle to zero once nothing is recent; this is a demo, not a monitoring system.
+  if (!h.some(e => Date.now() - e.at < 10*60*1000)) { $('#pollstate').textContent = 'idle'; return; }
+  $('#pollstate').textContent = 'polling logs…';
+  try {
+    const res = await fetch('/logs', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ trace_uuids: h.map(e => e.uuid).slice(0, MAX) }) });
+    if (!res.ok) { $('#pollstate').innerHTML = '<span class="bad">log query failed</span>'; return; }
+    const { traces } = await res.json();
+    for (const e of h) {
+      const t = traces[e.uuid];
+      if (t && t.events.length) e.logs = { hops: t.events.length, failed: t.failed };
+    }
+    save(h); renderHistory();
+    $('#pollstate').textContent = 'logs current';
+  } catch { $('#pollstate').innerHTML = '<span class="dim">logs unavailable</span>'; }
+}
+
+/* ---- demo mode: sequential, bounded, survives failures ---- */
+let demoRunning = false;
+async function runDemo() {
+  demoRunning = true; let ok = 0, fail = 0, sum = 0;
+  for (let i = 1; i <= MAX && demoRunning; i++) {
+    const payload = `demo-${i}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    const t0 = performance.now();
+    const r = await sendRing(payload);          // awaited: exactly one ring in flight
+    sum += performance.now() - t0;
+    r.ok ? ok++ : fail++;                        // a failure does not abort the run
+    $('#status').innerHTML += `<br><strong>demo ${i}/${MAX}</strong> —
+      <span class="ok">${ok} ok</span>, <span class="${fail?'bad':'dim'}">${fail} failed</span>,
+      mean ${Math.round(sum/i)}ms`;
+    await new Promise(r => setTimeout(r, 250));
+  }
+  demoRunning = false; $('#demo').checked = false; $('#send').disabled = false;
+}
+
+$('#send').onclick = async () => {
+  $('#send').disabled = true;
+  await sendRing($('#payload').value || 'hello');
+  $('#send').disabled = false;
+};
+$('#demo').onchange = e => {
+  if (e.target.checked) { $('#send').disabled = true; runDemo(); }
+  else demoRunning = false;
+};
+window.addEventListener('beforeunload', () => { demoRunning = false; });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+
+if (!ORIGIN) $('#status').innerHTML = '<span class="bad">origin URL not configured</span>';
+renderHistory(); poll(); polling = setInterval(poll, 5000);
+</script>
+</body>
+</html>
