@@ -45,6 +45,7 @@ module "hop" {
   source_bucket = google_storage_bucket.source.name
   source_object = google_storage_bucket_object.source.name
   peers         = local.peers
+  ring          = join(",", local.ring)
   deadline_sec  = local.deadlines[each.key]
   runtime       = var.runtime
   max_instances = var.max_instances
@@ -53,7 +54,8 @@ module "hop" {
   self_url  = each.key == local.origin ? local.urls[local.origin] : ""
   # Only Tokyo's identity may close the ring; /close checks this claim in-handler.
   closer_sa      = each.key == local.origin ? "ratw-${local.closer}@${var.project_id}.iam.gserviceaccount.com" : ""
-  allowed_origin = each.key == local.origin ? var.allowed_web_origin : ""
+  allowed_origin = each.key == local.origin ? coalesce(var.allowed_web_origin, local.web_url) : ""
+  # self_url and allowed_origin are placeholders until pass 2 (see regions.tf).
 }
 
 # ---------------------------------------------------------------------------

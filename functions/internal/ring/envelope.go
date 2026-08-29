@@ -16,6 +16,8 @@ var Regions = map[string]string{
 	"europe-west1":    "Belgium",
 	"europe-central2": "Warsaw",
 	"asia-northeast1": "Tokyo",
+	"asia-east1":      "Taiwan",
+	"asia-southeast1": "Singapore",
 }
 
 // canonicalRing is the default sequence used when the client supplies none (FR-1.4).

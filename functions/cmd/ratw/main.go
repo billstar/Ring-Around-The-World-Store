@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"ratw/internal/hop"
-	"ratw/internal/store"
+	"example.com/ratw/internal/hop"
+	"example.com/ratw/internal/store"
 )
 
 func main() {

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"ratw/internal/ring"
+	"example.com/ratw/internal/ring"
 )
 
 // deadlineHeader carries the caller's absolute deadline downstream so an inner

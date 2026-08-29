@@ -246,7 +246,7 @@ $('#demo').onchange = e => {
 window.addEventListener('beforeunload', () => { demoRunning = false; });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 
-if (!ORIGIN) $('#status').innerHTML = '<span class="bad">origin URL not configured</span>';
+if (!ORIGIN) $('#status').innerHTML = '<span class="bad">Origin URL not configured</span>';
 renderHistory(); poll(); polling = setInterval(poll, 5000);
 </script>
 </body>

@@ -1,4 +1,4 @@
-module ratw
+module example.com/ratw
 
 go 1.25.0
 

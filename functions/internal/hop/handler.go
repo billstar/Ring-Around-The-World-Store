@@ -11,9 +11,9 @@ import (
 	"os"
 	"time"
 
-	"ratw/internal/canonical"
-	"ratw/internal/ring"
-	"ratw/internal/store"
+	"example.com/ratw/internal/canonical"
+	"example.com/ratw/internal/ring"
+	"example.com/ratw/internal/store"
 )
 
 type Handler struct {
@@ -217,6 +217,9 @@ func (h *Handler) handleRing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	seq := req.Sequence
+	if len(seq) == 0 {
+		seq = h.cfg.Ring // what is actually deployed
+	}
 	if len(seq) == 0 {
 		seq = ring.DefaultSequence()
 	}

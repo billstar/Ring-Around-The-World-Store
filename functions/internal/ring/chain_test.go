@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"ratw/internal/canonical"
+	"example.com/ratw/internal/canonical"
 )
 
 func core() Core {

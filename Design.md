@@ -219,12 +219,20 @@ modules downloaded and cannot accidentally reach for credentials. `auth_local.go
 hard-fails if built without the tag while `RATW_LOCAL` is unset, so the two paths
 cannot silently diverge.
 
-Bootstrapping note: Cloud Run functions need their source as a zip in a GCS bucket, and
-each hop needs its *successor's* URL — a cyclic dependency, since Tokyo points back at
-the origin. Resolved by deploying all seven with a placeholder peer map, then a second
-`google_cloud_run_v2_service` env update pass once all URLs are known. In practice this
-means `terraform apply` is run twice; the second is a no-op after the first converges.
-This is documented rather than engineered around, given the time budget.
+Bootstrapping note: each hop needs its *successor's* URL, and the ring is a cycle (the
+last hop calls the origin), so the peer map cannot be wired in a single pass.
+
+An attempt was made to avoid this by deriving URLs from Cloud Run's deterministic
+`SERVICE-PROJECTNUMBER.REGION.run.app` format, which would have made the map knowable
+before creation. **This project does not use that format** — it assigns opaque hashed
+URLs (`ratw-web-<hash>-uw.a.run.app`). The `peer_map_wired` output exists precisely to
+catch that: it asserts every configured peer URL equals the URL Google actually
+assigned, and it caught the mismatch before a single misrouted ring was sent.
+
+The working approach is the two-pass apply, driven by `scripts/deploy.sh`:
+pass 1 creates everything with `https://unwired.invalid` placeholders; the real URIs
+are written to `peers.auto.tfvars` (gitignored — it holds the public URLs); pass 2
+wires them in. `verify-deploy.sh` refuses to run while `peer_map_wired` is false.
 
 ## 9. Web tier (`ratw-web`)
 
@@ -300,6 +308,15 @@ the 7-day lifecycle rule.
 
 Failures do not abort the run (FR-11.5): a demo that survives a broken hop and shows the
 partial chain is a better demo than one that stops.
+
+## 9.5 The deployed ring is authoritative
+
+`RATW_RING` carries the deployed topology to every hop, and the origin uses it as the
+default sequence when a client supplies none. An earlier version compiled the canonical
+six-region ring into the binary, which drifted the moment deployment changed: with five
+regions deployed, Warsaw dutifully tried to forward to a Tokyo that did not exist and
+failed with `no peer configured for region "asia-northeast1"`. The topology is
+configuration, not a constant.
 
 ## 10. Stretch goals (only if time remains)
 

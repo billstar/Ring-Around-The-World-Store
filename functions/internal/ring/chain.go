@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"ratw/internal/canonical"
+	"example.com/ratw/internal/canonical"
 )
 
 // The chain:

@@ -6,11 +6,18 @@ output "origin_url" {
   description = "Public ingress. Keep out of source control."
 }
 
-output "expected_urls_match" {
-  description = "Asserts Cloud Run assigned the deterministic URLs the peer map assumes."
-  value = alltrue([
-    for r in local.ring : module.hop[r].uri == local.urls[r]
-  ])
+# True once pass 2 has wired every hop to the URL Cloud Run actually assigned.
+# verify-deploy.sh refuses to run while this is false.
+output "peer_map_wired" {
+  value = alltrue(concat(
+    [for r in local.ring : module.hop[r].uri == local.urls[r]],
+    [google_cloudfunctions2_function.web.service_config[0].uri == local.web_url],
+  ))
+}
+
+# Consumed by scripts/deploy.sh to generate peers.auto.tfvars.
+output "actual_urls" {
+  value = { for r in local.ring : r => module.hop[r].uri }
 }
 
 output "buckets" {
@@ -19,4 +26,16 @@ output "buckets" {
 
 output "service_accounts" {
   value = { for r in local.ring : r => module.hop[r].service_account }
+}
+
+output "web_url" {
+  value       = google_cloudfunctions2_function.web.service_config[0].uri
+  description = "The page to open. Keep out of source control."
+}
+
+
+
+output "project_number" {
+  value       = data.google_project.this.number
+  description = "Used by verify-deploy.sh to derive hop URLs without printing them."
 }

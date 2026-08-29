@@ -17,3 +17,6 @@ node_modules/
 web/dist/
 functions/build/
 /tmp/
+
+# Build zips regenerated on every apply; churn on every commit.
+terraform/.build/

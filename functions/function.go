@@ -10,8 +10,8 @@ import (
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 
-	"ratw/internal/hop"
-	"ratw/internal/store"
+	"example.com/ratw/internal/hop"
+	"example.com/ratw/internal/store"
 )
 
 func init() {

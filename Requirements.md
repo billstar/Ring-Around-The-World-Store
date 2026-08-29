@@ -25,6 +25,21 @@ explicitly optimized for demonstrability over throughput.
 Seven write/read/receipt operations across six distinct regions. Five nested
 blocking calls between the client and Tokyo, satisfying the ≥5-hop requirement.
 
+### 2.1 Deployment status (2026-08-29)
+
+**Deployed: five regions, six receipts.** `us-west1 → us-central1 → us-east4 →
+europe-west1 → europe-central2 → ring close at us-west1`. This still satisfies the
+≥5-hop requirement (five nested blocking calls between client and the last hop) and
+every other requirement in this document, but it does not yet circumnavigate.
+
+**The Asia hop is blocked on a GCP quota, not on code.** This project's Cloud Run
+*region-initialization* limit is five regions; the sixth is refused in ANY region
+(`asia-northeast1` and `asia-east1` both returned "Project failed to initialize in
+this region due to quota exceeded"). Billing is enabled and the regions are otherwise
+available. Once a quota increase is granted, set `enable_asia_hop = true` in
+`terraform/variables.tf` and re-apply — the region allowlist, deadline table, and
+default sequence are all already parameterized for it. No code changes.
+
 ## 3. Functional Requirements
 
 ### FR-1 — Client request

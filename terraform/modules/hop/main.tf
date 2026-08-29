@@ -76,6 +76,7 @@ resource "google_cloudfunctions2_function" "hop" {
       RATW_REGION       = var.region
       RATW_BUCKET       = google_storage_bucket.hop.name
       RATW_PEERS        = var.peers
+      RATW_RING         = var.ring
       RATW_IS_ORIGIN    = var.is_origin ? "true" : "false"
       RATW_DEADLINE_SEC = tostring(var.deadline_sec)
       RATW_LOCAL        = "false"

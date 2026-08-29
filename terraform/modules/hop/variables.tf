@@ -4,6 +4,7 @@ variable "bucket_name" { type = string }
 variable "source_bucket" { type = string }
 variable "source_object" { type = string }
 variable "peers" { type = string }
+variable "ring" { type = string }
 variable "deadline_sec" { type = number }
 variable "runtime" { type = string }
 variable "max_instances" { type = number }

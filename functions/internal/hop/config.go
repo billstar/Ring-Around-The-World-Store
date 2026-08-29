@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"ratw/internal/ring"
+	"example.com/ratw/internal/ring"
 )
 
 // Config is entirely environment-driven: one binary, deployed six times, differing
@@ -15,6 +15,7 @@ type Config struct {
 	Region        string
 	Bucket        string
 	Peers         map[string]string // region -> base URL. The ONLY source of dial addresses.
+	Ring          []string          // the deployed ring, used when a client sends no sequence
 	IsOrigin      bool
 	Local         bool   // skip OIDC; used for the local proof-of-concept
 	AllowedOrigin string // exact CORS origin for /ring; never "*"
@@ -52,6 +53,20 @@ func LoadConfig() (Config, error) {
 			return c, fmt.Errorf("RATW_DEADLINE_SEC: %w", err)
 		}
 		c.DeadlineSec = n
+	}
+
+	// The deployed topology is the source of truth for the default sequence. A ring
+	// compiled into the binary drifts from the ring that actually exists the moment
+	// deployment changes, and the hop that notices is the one that cannot forward.
+	for _, r := range strings.Split(os.Getenv("RATW_RING"), ",") {
+		r = strings.TrimSpace(r)
+		if r == "" {
+			continue
+		}
+		if _, ok := ring.Regions[r]; !ok {
+			return c, fmt.Errorf("RATW_RING names unknown region %q", r)
+		}
+		c.Ring = append(c.Ring, r)
 	}
 
 	// RATW_PEERS is the SSRF firebreak. Request content selects a KEY in this map;
